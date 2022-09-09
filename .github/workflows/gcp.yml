@@ -1,0 +1,73 @@
+name: Build and deploy auth
+on:
+  push:
+    branches: ["main"]
+jobs:
+  push-image:
+    name: Build and push an image
+    runs-on: ubuntu-20.04
+    env:
+      PROJECT_ID: ${{ secrets.PROJECT_ID }}
+      PROJECT_ZONE: ${{ secrets.PROJECT_ZONE }}
+      CLUSTER: ${{ secrets.CLUSTER }}
+      REGISTRY: ${{ secrets.REGISTRY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - id: auth
+        name: Google Auth
+        uses: "google-github-actions/auth@v0"
+        with:
+          token_format: "access_token"
+          credentials_json: "${{ secrets.GCP_SECRET }}"
+
+      - name: Set up GKE credentials
+        uses: google-github-actions/get-gke-credentials@v0
+        with:
+          cluster_name: ${{ env.CLUSTER }}
+          location: ${{ env.PROJECT_ZONE }}
+
+      - name: Configure Docker Client
+        run: |-
+          echo ${{ steps.auth.outputs.access_token }} | docker login -u oauth2accesstoken --password-stdin https://$REGISTRY-docker.pkg.dev
+
+      - name: Build Docker Image
+        run: docker build . --file .docker/Dockerfile.prod --tag auth:latest
+
+      - name: Push Docker Image to Artifact Registry
+        run: |-
+          docker tag auth:latest $REGISTRY-docker.pkg.dev/$PROJECT_ID/sima/auth:latest
+          docker tag auth:latest $REGISTRY-docker.pkg.dev/$PROJECT_ID/sima/auth:$GITHUB_SHA
+          docker push $REGISTRY-docker.pkg.dev/$PROJECT_ID/sima/auth:latest
+          docker push $REGISTRY-docker.pkg.dev/$PROJECT_ID/sima/auth:$GITHUB_SHA
+
+      - name: Create Secrets
+        env:
+          KEYCLOAK_CLIENT_SECRET: ${{ secrets.KEYCLOAK_CLIENT_SECRET }}
+          KEYCLOAK_PASSWORD: ${{ secrets.KEYCLOAK_PASSWORD }}
+          MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
+        run: |-
+          kubectl delete secret auth-secret --ignore-not-found=true -n sima
+          kubectl create secret generic auth-secret \
+            --from-literal=KEYCLOAK_CLIENT_ID=sima-cli \
+            --from-literal=KEYCLOAK_CLIENT_SECRET=$KEYCLOAK_CLIENT_SECRET \
+            --from-literal=KEYCLOAK_USERNAME=admin \
+            --from-literal=KEYCLOAK_PASSWORD=$KEYCLOAK_PASSWORD \
+            --from-literal=MONGO_HOST=mongodb.mongo.svc.cluster.local \
+            --from-literal=MONGO_PORT=27017 \
+            --from-literal=MONGO_DB=auth \
+            --from-literal=MONGO_USER=root \
+            --from-literal=MONGO_PASSWORD=$MONGO_PASSWORD \
+            -n sima
+
+      - name: Deploy to GKE
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |-
+          kubectl apply -f k8s/configmap.yml -n sima
+          envsubst < k8s/deployment.yml | kubectl apply -f - -n sima
+          kubectl apply -f k8s/service.yml -n sima
+          kubectl rollout status deployment/auth -n sima
+          kubectl get services -o wide -n sima

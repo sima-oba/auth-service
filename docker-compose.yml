@@ -1,0 +1,152 @@
+version: '3.5'
+
+services:
+  auth-rest:
+    image: sima-auth
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+    environment:
+      FLASK_ENV: development
+      KEYCLOAK_BASE_PATH: http://keycloak:8080/auth/
+      KEYCLOAK_REALM: master
+      KEYCLOAK_CLIENT_ID: sima-cli
+      KEYCLOAK_CLIENT_SECRET: c8614fe7-d73e-4a77-83ba-6680fd8e20d0
+      KEYCLOAK_USERNAME: $KEYCLOAK_USERNAME
+      KEYCLOAK_PASSWORD: $KEYCLOAK_PASSWORD
+      MONGO_HOST: database
+      MONGO_PORT: 27017
+      MONGO_DB: ${MONGO_DB}
+      MONGO_USER: ${MONGO_USER}
+      MONGO_PASSWORD: ${MONGO_PASSWORD}
+      KAFKA_SERVER: kafka:9093
+      TEMPLATE_EMAIL_VERIFICATION: $TEMPLATE_EMAIL_VERIFICATION
+      TEMPLATE_RESET_PASSWORD: $TEMPLATE_RESET_PASSWORD
+      URL_EMAIL_VERIFICATION: $URL_EMAIL_VERIFICATION
+      URL_RESET_PASSWORD: $URL_RESET_PASSWORD
+    ports:
+      - ${REST_PORT:-5000}:5000
+    volumes:
+      - .:/app
+    depends_on:
+      - keycloak
+      - database
+    networks:
+      - sima-network
+    entrypoint: ['.docker/wait-for.sh', 'http://keycloak:8080/auth/realms/master', '--', 'python', 'main.py', 'start-flask-server']
+
+  auth-kafka:
+    image: sima-auth
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+    environment:
+      KEYCLOAK_BASE_PATH: http://keycloak:8080/auth/
+      KEYCLOAK_REALM: master
+      KEYCLOAK_CLIENT_ID: sima-cli
+      KEYCLOAK_CLIENT_SECRET: c8614fe7-d73e-4a77-83ba-6680fd8e20d0
+      KEYCLOAK_USERNAME: $KEYCLOAK_USERNAME
+      KEYCLOAK_PASSWORD: $KEYCLOAK_PASSWORD
+      MONGO_HOST: database
+      MONGO_PORT: 27017
+      MONGO_DB: ${MONGO_DB}
+      MONGO_USER: ${MONGO_USER}
+      MONGO_PASSWORD: ${MONGO_PASSWORD}
+      KAFKA_SERVER: kafka:9093
+    volumes:
+      - .:/app
+    depends_on:
+      - keycloak
+      - kafka
+      - database
+    networks:
+      - sima-network
+    entrypoint: ['.docker/wait-for.sh', 'http://keycloak:8080/auth/realms/master', '--', 'python', 'main.py', 'start-kafka-consumer']
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:15.0.2
+    environment:
+      DB_VENDOR: POSTGRES
+      DB_ADDR: keycloakdb
+      DB_DATABASE: keycloak
+      DB_USER: $KEYCLOAK_USERNAME
+      DB_SCHEMA: public
+      DB_PASSWORD: $KEYCLOAK_PASSWORD
+      KEYCLOAK_USER: $KEYCLOAK_USERNAME
+      KEYCLOAK_PASSWORD: $KEYCLOAK_PASSWORD
+    ports:
+      - 8080:8080
+    volumes:
+      - .docker/sima-realm.json:/sima-realm.json
+    depends_on:
+      - keycloakdb
+    networks:
+      - sima-network
+    command: [
+      '-Dkeycloak.migration.action=import',
+      '-Dkeycloak.migration.provider=singleFile',
+      '-Dkeycloak.migration.strategy=OVERWRITE_EXISTING',
+      '-Dkeycloak.migration.file=/sima-realm.json'
+    ]
+
+  keycloakdb:
+    image: postgres:14.1
+    volumes:
+      - pgauthdb:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: $KEYCLOAK_DB
+      POSTGRES_USER: $KEYCLOAK_USERNAME
+      POSTGRES_PASSWORD: $KEYCLOAK_PASSWORD
+    networks:
+      - sima-network
+
+  database:
+    image: mongo:4.4
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: $MONGO_USER
+      MONGO_INITDB_ROOT_PASSWORD: $MONGO_PASSWORD
+      MONGO_INITDB_DATABASE: $MONGO_DB
+    volumes:
+      - auth-data:/data/db
+    networks:
+      - sima-network
+    command: ["--auth"]
+    ports:
+      - 27017:27017
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:6.2.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - sima-network
+
+  kafka:
+    image: confluentinc/cp-kafka:6.2.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9093,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_MESSAGE_MAX_BYTES: 67108864
+    networks:
+      - sima-network
+    ports:
+      - 9092:9092
+
+volumes:
+  pgauthdb:
+    driver: local
+  auth-data:
+    driver: local
+
+networks:
+  sima-network:
+    name: sima-network
+    driver: bridge

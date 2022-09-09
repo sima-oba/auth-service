@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-rest
+  template:
+    metadata:
+      labels:
+        app: auth-rest
+    spec:
+      containers:
+        - name: auth-rest
+          image: $REGISTRY-docker.pkg.dev/$PROJECT_ID/sima/auth:$IMAGE_TAG
+          imagePullPolicy: Always
+          args: ["start-gunicorn-server", "--workers", "8"]
+          ports:
+            - name: rest
+              containerPort: 5000
+          envFrom:
+            - secretRef:
+                name: auth-secret
+            - configMapRef:
+                name: auth-conf
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+        - name: auth-kafka
+          image: $REGISTRY-docker.pkg.dev/$PROJECT_ID/sima/auth:$IMAGE_TAG
+          imagePullPolicy: Always
+          args: ["start-kafka-consumer"]
+          envFrom:
+            - secretRef:
+                name: auth-secret
+            - configMapRef:
+                name: auth-conf
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "50m"

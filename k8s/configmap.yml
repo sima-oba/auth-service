@@ -7,9 +7,9 @@ data:
   KEYCLOAK_BASE_PATH: http://keycloak.keycloak.svc.cluster.local/auth/
   KEYCLOAK_REALM: master
   KAFKA_SERVER: kafka.kafka.svc.cluster.local:9092
-  TEMPLATE_EMAIL_VERIFICATION: 96a38d8e-c7fb-43d6-b968-76c59c1b1ffe
+  TEMPLATE_EMAIL_VERIFICATION: 7cf08dc6-cf7b-412c-84a3-81d1c090736b
   TEMPLATE_RESET_PASSWORD: b4d90c4e-e9b2-4cee-939c-d1567180f269
-  URL_EMAIL_VERIFICATION: http://YOUR_DOMAIN/login/public-activation
-  URL_OWNER_EMAIL_VERIFICATION: http://YOUR_DOMAIN/login/owner-activation
-  URL_RESET_PASSWORD: http://YOUR_DOMAIN/site/login/reset-password
+  URL_EMAIL_VERIFICATION: http://35.233.223.189/login/public-activation
+  URL_OWNER_EMAIL_VERIFICATION: http://35.233.223.189/login/owner-activation
+  URL_RESET_PASSWORD: http://35.233.223.189/site/login/reset-password
   NOTIFICATION_URI: http://notification-service:5000/api/v1/notification/events

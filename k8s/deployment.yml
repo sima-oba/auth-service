@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: auth-rest
-          image: $REGISTRY-docker.pkg.dev/$PROJECT_ID/sima/auth:$IMAGE_TAG
+          image: $REGISTRY-docker.pkg.dev/$PROJECT_ID/$REGISTRY_REPO/auth:$IMAGE_TAG
           imagePullPolicy: Always
           args: ["start-gunicorn-server", "--workers", "8"]
           ports:
@@ -30,7 +30,7 @@ spec:
               memory: "256Mi"
               cpu: "200m"
         - name: auth-kafka
-          image: $REGISTRY-docker.pkg.dev/$PROJECT_ID/sima/auth:$IMAGE_TAG
+          image: $REGISTRY-docker.pkg.dev/$PROJECT_ID/$REGISTRY_REPO/auth:$IMAGE_TAG
           imagePullPolicy: Always
           args: ["start-kafka-consumer"]
           envFrom:

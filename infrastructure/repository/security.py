@@ -98,7 +98,7 @@ class SecurityRepository(ISecurityRepository):
             for role in self._admin.get_realm_roles_of_user(_id)
         ]
 
-        roles_path = f'/auth/admin/realms/{self._admin.realm_name}' \
+        roles_path = f'/admin/realms/{self._admin.realm_name}' \
                      f'/users/{_id}/role-mappings/realm/composite'
 
         effective_roles = [
@@ -313,7 +313,7 @@ class SecurityRepository(ISecurityRepository):
         ]
 
     def find_available_user_roles(self, user_id) -> List[str]:
-        path = f'/auth/admin/realms/{self._admin.realm_name}' \
+        path = f'/admin/realms/{self._admin.realm_name}' \
                f'/users/{user_id}/role-mappings/realm/available'
 
         response = self._admin.raw_get(path)
@@ -324,7 +324,7 @@ class SecurityRepository(ISecurityRepository):
         return {role['name'] for role in response.json()}
 
     def find_available_group_roles(self, group_id: str) -> List[str]:
-        path = f'/auth/admin/realms/{self._admin.realm_name}' \
+        path = f'/admin/realms/{self._admin.realm_name}' \
                f'/groups/{group_id}/role-mappings/realm/available'
 
         response = self._admin.raw_get(path)

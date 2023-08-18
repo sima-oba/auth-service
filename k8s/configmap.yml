@@ -4,7 +4,7 @@ metadata:
   name: auth-conf
 data:
   FLASK_ENV: production
-  KEYCLOAK_BASE_PATH: http://keycloak.keycloak.svc.cluster.local/auth/
+  KEYCLOAK_BASE_PATH: http://keycloak.keycloak.svc.cluster.local/
   KEYCLOAK_REALM: master
   KAFKA_SERVER: kafka.kafka.svc.cluster.local:9092
   TEMPLATE_EMAIL_VERIFICATION: 7cf08dc6-cf7b-412c-84a3-81d1c090736b
